@@ -174,6 +174,7 @@ static void (*orig_curl_close)(INTERNAL_FUNCTION_PARAMETERS) = NULL;
 ZEND_BEGIN_MODULE_GLOBALS(skywalking)
     char *sock_path;
     char *app_code;
+    char *name_space;
     zend_bool enable;
     zval UpstreamSegment;
     zval context;
