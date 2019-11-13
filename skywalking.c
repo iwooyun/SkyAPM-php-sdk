@@ -939,12 +939,8 @@ static void php_skywalking_init_globals(zend_skywalking_globals *skywalking_glob
 	skywalking_globals->app_code = NULL;
 	skywalking_globals->enable = 0;
 	skywalking_globals->version = 6;
-<<<<<<< HEAD
-	skywalking_globals->sock_path = "/tmp/sky_agent.sock";
-	skywalking_globals->name_space = "";
-=======
 	skywalking_globals->sock_path = "/var/run/sky-agent.sock";
->>>>>>> c7919c07157826a76ed3c074bb1bb2c559885870
+	skywalking_globals->name_space = "";
 }
 
 
