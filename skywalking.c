@@ -939,8 +939,12 @@ static void php_skywalking_init_globals(zend_skywalking_globals *skywalking_glob
 	skywalking_globals->app_code = NULL;
 	skywalking_globals->enable = 0;
 	skywalking_globals->version = 6;
-	skywalking_globals->sock_path = "/var/run/sky-agent.sock";
+<<<<<<< HEAD
+	skywalking_globals->sock_path = "/tmp/sky_agent.sock";
 	skywalking_globals->name_space = "";
+=======
+	skywalking_globals->sock_path = "/var/run/sky-agent.sock";
+>>>>>>> c7919c07157826a76ed3c074bb1bb2c559885870
 }
 
 
@@ -993,8 +997,12 @@ static void write_log(char *text) {
             if (conn >= 0) {
                 sprintf(message, "1%s\n", text);
                 write(fd, message, strlen(message));
+            } else {
+                php_error_docref(NULL, E_WARNING, "[skywalking] failed to connect the sock.");
             }
             close(fd);
+        } else {
+            php_error_docref(NULL, E_WARNING, "[skywalking] failed to open the sock.");
         }
         efree(message);
         efree(text);
@@ -1013,12 +1021,12 @@ static char *generate_sw3(zend_long span_id, char *peer_host, char *operation_na
     zval *distributedTraceId = zend_hash_str_find(Z_ARRVAL(SKYWALKING_G(context)), "distributedTraceId",
                                                   sizeof("distributedTraceId") - 1);
     ssize_t sw3_l = 0;
-    sw3_l = snprintf(NULL, 0, "sw3: %s|%d|%d|%d|#%s|#%s|#%s|%s", Z_STRVAL_P(traceId), span_id,
+    sw3_l = snprintf(NULL, 0, "%ssw3: %s|%d|%d|%d|#%s|#%s|#%s|%s", SKYWALKING_G(name_space), Z_STRVAL_P(traceId), span_id,
                      application_instance, Z_LVAL_P(entryApplicationInstance), peer_host,
                      Z_STRVAL_P(entryOperationName), operation_name, Z_STRVAL_P(distributedTraceId));
     char *sw3 = (char*)emalloc(sw3_l + 1);
     bzero(sw3, sw3_l + 1);
-    snprintf(sw3, sw3_l + 1, "sw3: %s|%d|%d|%d|#%s|#%s|#%s|%s", Z_STRVAL_P(traceId), span_id,
+    snprintf(sw3, sw3_l + 1, "%ssw3: %s|%d|%d|%d|#%s|#%s|#%s|%s", SKYWALKING_G(name_space), Z_STRVAL_P(traceId), span_id,
              application_instance, Z_LVAL_P(entryApplicationInstance), peer_host,
              Z_STRVAL_P(entryOperationName), operation_name, Z_STRVAL_P(distributedTraceId));
     return sw3;
@@ -1054,14 +1062,14 @@ static char *generate_sw6(zend_long span_id, char *peer_host, char *operation_na
     zval_b64_encode(&parentEndpointNameEncode, sharpParentEndpointName);
 
     ssize_t sw6_l = 0;
-    sw6_l = snprintf(NULL, 0, "sw6: 1-%s-%s-%d-%d-%d-%s-%s-%s", Z_STRVAL(distributedTraceIdEncode),
+    sw6_l = snprintf(NULL, 0, "%ssw6: 1-%s-%s-%d-%d-%d-%s-%s-%s", SKYWALKING_G(name_space), Z_STRVAL(distributedTraceIdEncode),
                      Z_STRVAL(traceSegmentIdEncode), span_id, application_instance, Z_LVAL_P(entryApplicationInstance),
                      Z_STRVAL(peerHostEncode), Z_STRVAL(entryEndpointNameEncode),
                      Z_STRVAL(parentEndpointNameEncode));
 
     char *sw6 = (char *) emalloc(sw6_l + 1);
     bzero(sw6, sw6_l + 1);
-    snprintf(sw6, sw6_l + 1, "sw6: 1-%s-%s-%d-%d-%d-%s-%s-%s", Z_STRVAL(distributedTraceIdEncode),
+    snprintf(sw6, sw6_l + 1, "%ssw6: 1-%s-%s-%d-%d-%d-%s-%s-%s", SKYWALKING_G(name_space), Z_STRVAL(distributedTraceIdEncode),
              Z_STRVAL(traceSegmentIdEncode), span_id, application_instance, Z_LVAL_P(entryApplicationInstance),
              Z_STRVAL(peerHostEncode), Z_STRVAL(entryEndpointNameEncode),
              Z_STRVAL(parentEndpointNameEncode));
@@ -1124,7 +1132,7 @@ static void generate_context() {
         sw = zend_hash_str_find(Z_ARRVAL_P(carrier), "HTTP_SW3", sizeof("HTTP_SW3") - 1);
 
         if (sw != NULL && Z_TYPE_P(sw) == IS_STRING && Z_STRLEN_P(sw) > 10) {
-            add_assoc_string(&SKYWALKING_G(context), "sw3", Z_STRVAL_P(sw));
+            add_assoc_string(&SKYWALKING_G(context), strcat(SKYWALKING_G(name_space), "sw3"), Z_STRVAL_P(sw));
 
             zval temp;
             array_init(&temp);
@@ -1168,7 +1176,7 @@ static void generate_context() {
     } else if (SKYWALKING_G(version) == 6) {
         sw = zend_hash_str_find(Z_ARRVAL_P(carrier), "HTTP_SW6", sizeof("HTTP_SW6") - 1);
         if (sw != NULL && Z_TYPE_P(sw) == IS_STRING && Z_STRLEN_P(sw) > 10) {
-            add_assoc_string(&SKYWALKING_G(context), "sw6", Z_STRVAL_P(sw));
+            add_assoc_string(&SKYWALKING_G(context), strcat(SKYWALKING_G(name_space), "sw6"), Z_STRVAL_P(sw));
 
             zval temp;
             array_init(&temp);
@@ -1542,9 +1550,13 @@ static int sky_register() {
                     application_instance = atoi(ids[1]);
                     strncpy(application_uuid, ids[2], sizeof application_uuid - 1);
                 }
+            } else {
+                php_error_docref(NULL, E_WARNING, "[skywalking] failed to connect the sock.");
             }
 
             close(fd);
+        } else {
+            php_error_docref(NULL, E_WARNING, "[skywalking] failed to open the sock.");
         }
     }
     return 0;
@@ -1562,6 +1574,10 @@ PHP_MINIT_FUNCTION (skywalking) {
 	if (SKYWALKING_G(enable)) {
         if (strcasecmp("cli", sapi_module.name) == 0 && cli_debug == 0) {
             return SUCCESS;
+        }
+
+        if (strlen(SKYWALKING_G(name_space)) > 0) {
+            skywalking_globals.name_space = strcat(SKYWALKING_G(name_space), "-");
         }
 
         // 用户自定义函数执行器(php脚本定义的类、函数)
