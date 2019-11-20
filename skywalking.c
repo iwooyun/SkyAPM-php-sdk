@@ -53,6 +53,7 @@
 #include <pthread.h>
 #include <fcntl.h>
 #include <dirent.h>
+#include <ctype.h>
 
 #include <sys/un.h>
 
@@ -993,12 +994,8 @@ static void write_log(char *text) {
             if (conn >= 0) {
                 sprintf(message, "1%s\n", text);
                 write(fd, message, strlen(message));
-            } else {
-                php_error_docref(NULL, E_WARNING, "[skywalking] failed to connect the sock.");
             }
             close(fd);
-        } else {
-            php_error_docref(NULL, E_WARNING, "[skywalking] failed to open the sock.");
         }
         efree(message);
         efree(text);
@@ -1124,11 +1121,16 @@ static void generate_context() {
     }
     carrier = zend_hash_str_find(&EG(symbol_table), ZEND_STRL("_SERVER"));
 
+    char *sw_header = (char *) malloc(strlen(SKYWALKING_G(name_space)) + 9);
+    char *sw_context = (char *) malloc(strlen(SKYWALKING_G(name_space)) + 4);
+    char *up_space = (char *) malloc(strlen(SKYWALKING_G(name_space)) + 1);
+    strcpy(up_space, SKYWALKING_G(name_space));
     if(SKYWALKING_G(version) == 5) {
-        sw = zend_hash_str_find(Z_ARRVAL_P(carrier), "HTTP_SW3", sizeof("HTTP_SW3") - 1);
-
+        sprintf(sw_header, "%s%s%s", "HTTP_", mstrupr(up_space), "SW3");
+        sw = zend_hash_str_find(Z_ARRVAL_P(carrier), sw_header, sizeof(sw_header) - 1);
         if (sw != NULL && Z_TYPE_P(sw) == IS_STRING && Z_STRLEN_P(sw) > 10) {
-            add_assoc_string(&SKYWALKING_G(context), strcat(SKYWALKING_G(name_space), "sw3"), Z_STRVAL_P(sw));
+            sprintf(sw_context, "%s%s", SKYWALKING_G(name_space), "sw3");
+            add_assoc_string(&SKYWALKING_G(context), sw_context, Z_STRVAL_P(sw));
 
             zval temp;
             array_init(&temp);
@@ -1170,9 +1172,11 @@ static void generate_context() {
             }
         }
     } else if (SKYWALKING_G(version) == 6) {
-        sw = zend_hash_str_find(Z_ARRVAL_P(carrier), "HTTP_SW6", sizeof("HTTP_SW6") - 1);
+        sprintf(sw_header, "%s%s%s", "HTTP_", mstrupr(up_space), "SW6");
+        sw = zend_hash_str_find(Z_ARRVAL_P(carrier), sw_header, sizeof(sw_header) - 1);
         if (sw != NULL && Z_TYPE_P(sw) == IS_STRING && Z_STRLEN_P(sw) > 10) {
-            add_assoc_string(&SKYWALKING_G(context), strcat(SKYWALKING_G(name_space), "sw6"), Z_STRVAL_P(sw));
+            sprintf(sw_context, "%s%s", SKYWALKING_G(name_space), "sw6");
+            add_assoc_string(&SKYWALKING_G(context), sw_context, Z_STRVAL_P(sw));
 
             zval temp;
             array_init(&temp);
@@ -1234,7 +1238,7 @@ static void generate_context() {
         } else {
             add_assoc_long(&SKYWALKING_G(context), "parentApplicationInstance", application_instance);
             add_assoc_long(&SKYWALKING_G(context), "entryApplicationInstance", application_instance);
-            char *uri = get_page_request_uri();
+            char *uri = strtok(get_page_request_uri(), "?");
             add_assoc_string(&SKYWALKING_G(context), "entryOperationName", (uri == NULL) ? "" : uri);
             add_assoc_string(&SKYWALKING_G(context), "distributedTraceId", makeTraceId);
             if(uri != NULL) {
@@ -1356,6 +1360,14 @@ static char* _get_current_machine_ip(){
     }
 
     return ip;
+}
+
+static char *mstrupr(char *str)
+{
+    char *orign=str;
+    for (; *str!='\0'; str++)
+        *str = toupper(*str);
+    return orign;
 }
 
 static void request_init() {
@@ -1546,13 +1558,9 @@ static int sky_register() {
                     application_instance = atoi(ids[1]);
                     strncpy(application_uuid, ids[2], sizeof application_uuid - 1);
                 }
-            } else {
-                php_error_docref(NULL, E_WARNING, "[skywalking] failed to connect the sock.");
             }
 
             close(fd);
-        } else {
-            php_error_docref(NULL, E_WARNING, "[skywalking] failed to open the sock.");
         }
     }
     return 0;
