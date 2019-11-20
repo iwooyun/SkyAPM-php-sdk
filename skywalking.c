@@ -1127,7 +1127,7 @@ static void generate_context() {
     strcpy(up_space, SKYWALKING_G(name_space));
     if(SKYWALKING_G(version) == 5) {
         sprintf(sw_header, "%s%s%s", "HTTP_", mstrupr(up_space), "SW3");
-        sw = zend_hash_str_find(Z_ARRVAL_P(carrier), sw_header, sizeof(sw_header) - 1);
+        sw = zend_hash_str_find(Z_ARRVAL_P(carrier), sw_header, strlen(sw_header));
         if (sw != NULL && Z_TYPE_P(sw) == IS_STRING && Z_STRLEN_P(sw) > 10) {
             sprintf(sw_context, "%s%s", SKYWALKING_G(name_space), "sw3");
             add_assoc_string(&SKYWALKING_G(context), sw_context, Z_STRVAL_P(sw));
@@ -1173,7 +1173,7 @@ static void generate_context() {
         }
     } else if (SKYWALKING_G(version) == 6) {
         sprintf(sw_header, "%s%s%s", "HTTP_", mstrupr(up_space), "SW6");
-        sw = zend_hash_str_find(Z_ARRVAL_P(carrier), sw_header, sizeof(sw_header) - 1);
+        sw = zend_hash_str_find(Z_ARRVAL_P(carrier), sw_header, strlen(sw_header));
         if (sw != NULL && Z_TYPE_P(sw) == IS_STRING && Z_STRLEN_P(sw) > 10) {
             sprintf(sw_context, "%s%s", SKYWALKING_G(name_space), "sw6");
             add_assoc_string(&SKYWALKING_G(context), sw_context, Z_STRVAL_P(sw));
@@ -1362,11 +1362,31 @@ static char* _get_current_machine_ip(){
     return ip;
 }
 
+/**
+ * 将字符串转为大写, 并替换"-"为"_"
+ */
 static char *mstrupr(char *str)
 {
-    char *orign=str;
-    for (; *str!='\0'; str++)
+    char *orign = str;
+    for (; *str!='\0'; str++) {
         *str = toupper(*str);
+    }
+
+    int len;
+    char bsr[strlen(orign)];
+    char *pos = (char *)strstr(orign, "-");
+    while (pos != NULL)
+    {
+        memset(bsr, 0, sizeof(bsr));
+        len = pos - orign;
+        strncpy(bsr, orign, len);
+        strcat(bsr, "_");
+        strcat(bsr, pos + strlen("-"));
+        strcpy(orign, bsr);
+        pos =(char *)strstr(orign, "-");
+    }
+
+    free(pos);
     return orign;
 }
 
