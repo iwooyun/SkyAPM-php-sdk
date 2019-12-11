@@ -57,6 +57,11 @@ func NewAgent(cli *cli.Context) *Agent {
 }
 
 func (t *Agent) Run() {
+	defer func() {
+		if err := recover(); err != nil {
+			log.Errorln(err)
+		}
+	}()
 	log.Info("hello skywalking")
 	t.connGRPC()
 	t.listenSocket()

@@ -63,6 +63,11 @@ type ref struct {
 
 func (t *Agent) send(segments []*upstreamSegment) {
 	var err error
+	defer func() {
+		if err := recover(); err != nil {
+			log.Errorln(err)
+		}
+	}()
 
 	log.Infof("start sending trace..., count %d", len(segments))
 
@@ -82,6 +87,7 @@ func (t *Agent) send(segments []*upstreamSegment) {
 
 	if streamV5 == nil && streamV6 == nil {
 		log.Error("no stream available")
+		return
 	}
 
 	for _, segment := range segments {
@@ -116,7 +122,7 @@ func (t *Agent) send(segments []*upstreamSegment) {
 	if streamV5 != nil {
 		streamV5.CloseAndRecv()
 	}
-	if streamV6 == nil {
+	if streamV6 != nil {
 		streamV6.CloseAndRecv()
 	}
 	log.Info("sending success...")
